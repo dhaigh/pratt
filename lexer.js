@@ -31,8 +31,16 @@ export class Lexer {
     }
 
     consumeNumber() {
-        this.tokens.push({ value: this.char, type: 'number' });
-        this.index += 1;
+        const start = this.index;
+
+        while (isNumber(this.char)) {
+            this.index += 1;
+        }
+
+        this.tokens.push({
+            value: this.source.slice(start, this.index),
+            type: 'number',
+        });
     }
 
     get char() {
