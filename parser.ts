@@ -1,29 +1,21 @@
-import { Lexer } from './lexer.js';
+import { Operator, Token, Lexer } from './lexer';
 const lexer = new Lexer('6÷2×1+2');
 
-const POWERS = {
+const POWERS: Record<Operator, number> = {
     '×': 3,
     '÷': 2,
     '+': 1,
     '-': 1,
 };
 
-class Symbol {
-    parser;
-    token;
+abstract class Symbol {
+    constructor(
+        protected readonly parser: Parser,
+        public readonly token: Token
+    ) {}
 
-    constructor(parser, token) {
-        this.parser = parser;
-        this.token = token;
-    }
-
-    nud() {
-        throw new Error('Undefined');
-    }
-
-    led(left) {
-        throw new Error('Missing operator');
-    }
+    abstract nud(): Symbol;
+    abstract led(left: Symbol): Symbol;
 
     get lbp() {
         if (this.token.type !== 'operator') {
@@ -38,24 +30,30 @@ class Literal extends Symbol {
     nud() {
         return this;
     }
+
+    led(): Symbol {
+        throw new Error('unexpected led');
+    }
 }
 
 class Infix extends Symbol {
-    first;
-    second;
+    firstSecond?: [Symbol, Symbol];
 
-    led(left) {
-        this.first = left;
-        this.second = this.parser.parse(this.lbp);
+    nud(): Symbol {
+        throw new Error('unexpected nud');
+    }
+
+    led(left: Symbol) {
+        this.firstSecond = [left, this.parser.parse(this.lbp)];
         return this;
     }
 }
 
 export class Parser {
-    tokens = [];
+    tokens: Symbol[] = [];
     index = 0;
 
-    constructor(tokens) {
+    constructor(tokens: Token[]) {
         this.tokens = tokens.map(tok => {
             if (tok.type === 'number') {
                 return new Literal(this, tok);
@@ -65,7 +63,7 @@ export class Parser {
         });
     }
 
-    parse(rbp = 0) {
+    parse(rbp = 0): Symbol {
         let tok = this.token;
         this.advance();
         let left = tok.nud();
@@ -89,14 +87,21 @@ export class Parser {
 }
 
 const parser = new Parser(lexer.tokenize());
-const p = (parser.parse());
+const p = parser.parse();
 
-const print = exp => {
+type SymbolUnion = Literal | Infix;
+
+const print = (exp: SymbolUnion): string => {
     if (exp instanceof Literal) {
         return exp.token.value;
     }
 
-    const { first, second } = exp;
+    if (!exp.firstSecond) {
+        throw new Error('expected firstSecond');
+    }
+
+    const [ first, second ] = exp.firstSecond;
+
     let a = print(first);
     let b = print(second);
 

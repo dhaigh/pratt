@@ -1,15 +1,21 @@
 const OPERATORS = [ '+', '-', '×', '÷', '(', ')' ];
-const isOperator = c => OPERATORS.includes(c);
-const isNumber = c => /^[0-9]$/.test(c);
+
+export type Operator = typeof OPERATORS[number];
+
+const isOperator = (c: string): c is Operator => OPERATORS.includes(c);
+
+const isNumber = (c: string) => /^[0-9]$/.test(c);
+
+export interface Token {
+    type: string;
+    value: string;
+}
 
 export class Lexer {
-    source = '';
     index = 0;
-    tokens = [];
+    tokens: Token[] = [];
 
-    constructor(source) {
-        this.source = source;
-    }
+    constructor(private readonly source: string) {}
 
     tokenize() {
         while (!this.endOfString) {
