@@ -1,4 +1,16 @@
-const OPERATORS = [ '+', '-', '×', '÷', '(', ')' ];
+const OPERATORS = [
+    '+',
+    '-',
+
+    '×',
+    '*',
+
+    '÷',
+    '/',
+
+    '(',
+    ')',
+];
 
 export type Operator = typeof OPERATORS[number];
 
@@ -23,6 +35,8 @@ export class Lexer {
                 this.consumeOperator();
             } else if (isNumber(this.char)) {
                 this.consumeNumber();
+            } else if (this.char === ' ') {
+                this.index += 1;
             } else {
                 throw new Error(`Unknown character '${this.char}'`);
             }

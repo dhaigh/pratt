@@ -1,11 +1,13 @@
 import { Operator, Token, Lexer } from './lexer';
-const lexer = new Lexer('6÷2×1+2');
+const lexer = new Lexer('6/2*(1+2)');
 
 const POWERS: Record<Operator, number> = {
-    '×': 3,
-    '÷': 2,
     '+': 1,
     '-': 1,
+    '×': 2,
+    '*': 2,
+    '÷': 2,
+    '/': 2,
 };
 
 abstract class Symbol {
@@ -18,6 +20,10 @@ abstract class Symbol {
     abstract led(left: Symbol): Symbol;
 
     get lbp() {
+        if (this.token.type === 'end') {
+            return 0;
+        }
+
         if (this.token.type !== 'operator') {
             throw new Error('expected operator');
         }
@@ -26,8 +32,18 @@ abstract class Symbol {
     }
 }
 
+class End extends Symbol {
+    nud(): Symbol {
+        throw new Error('unexpected end');
+    }
+
+    led(): Symbol {
+        throw new Error('unexpected end');
+    }
+}
+
 class Literal extends Symbol {
-    nud() {
+    nud(): Symbol {
         return this;
     }
 
@@ -43,46 +59,78 @@ class Infix extends Symbol {
         throw new Error('unexpected nud');
     }
 
-    led(left: Symbol) {
+    led(left: Symbol): Symbol {
+        if (this.parser.symbol instanceof End) {
+            return left;
+        }
+
         this.firstSecond = [left, this.parser.parse(this.lbp)];
         return this;
     }
 }
 
+class Prefix extends Symbol {
+    nud(): Symbol {
+        const exp = this.parser.parse(0);
+        this.parser.advance(')');
+        return exp;
+    }
+
+    led(): Symbol {
+        throw new Error('unexpected led');
+    }
+}
+
 export class Parser {
-    tokens: Symbol[] = [];
+    symbols: Symbol[] = [];
     index = 0;
 
-    constructor(tokens: Token[]) {
-        this.tokens = tokens.map(tok => {
+    constructor(symbols: Token[]) {
+        this.symbols = symbols.map(tok => {
             if (tok.type === 'number') {
                 return new Literal(this, tok);
+            } else if (tok.value === '(') {
+                return new Prefix(this, tok);
             } else {
                 return new Infix(this, tok);
             }
         });
+        this.symbols.push(new End(this, {
+            type: 'end',
+            value: '<end>'
+        }));
     }
 
     parse(rbp = 0): Symbol {
-        let tok = this.token;
-        this.advance();
-        let left = tok.nud();
+        // should probs be a literal
+        let token = this.symbol;
 
-        while (this.index < this.tokens.length && rbp < this.token.lbp) {
-            tok = this.token;
+        this.advance();
+
+        // this.symbol is now an operator
+
+        let left = token.nud(); // LEFT OF THE OPERATOR
+
+        while (rbp < this.symbol.lbp) {
+            // remember this.symbol is an operator because of this.advance()
+            token = this.symbol;
+
             this.advance();
-            left = tok.led(left);
+            left = token.led(left);
         }
 
         return left;
     }
 
-    advance() {
+    advance(expected?: string) {
+        if (expected && this.symbol.token.value !== expected) {
+            throw new Error(`expected ${expected}, saw ${this.symbol.token.value}`);
+        }
         this.index += 1;
     }
 
-    get token() {
-        return this.tokens[this.index];
+    get symbol(): Symbol  {
+        return this.symbols[this.index];
     }
 }
 
@@ -116,4 +164,5 @@ const print = (exp: SymbolUnion): string => {
     return `${a}${exp.token.value}${b}`;
 };
 
-console.log(print(p));
+const str = print(p);
+console.log(str,'=', eval(str));
